@@ -28,37 +28,54 @@ async function fetchMods() {
     const mods = [];
 
     for (const thread of threads) {
-      try {
-        const msgRes = await fetch(
-          `https://discord.com/api/v10/channels/${thread.id}/messages`,
-          { headers }
-        );
+  try {
+    console.log("thread:", thread.name); // ★追加①
 
-        const messages = await msgRes.json();
+    const msgRes = await fetch(
+      `https://discord.com/api/v10/channels/${thread.id}/messages`,
+      { headers }
+    );
 
-        if (!Array.isArray(messages)) {
-          console.log("messages取得失敗:", messages);
-          continue;
-        }
+    const messages = await msgRes.json();
 
-        if (messages.length === 0) continue;
+    console.log(
+      "messages数:",
+      Array.isArray(messages) ? messages.length : "取得失敗"
+    ); // ★追加②
 
-        const msg = messages[0];
-
-        console.log("thread:", thread.name);
-        console.log("attachments:", msg.attachments);
-
-        mods.push({
-          name: thread.name,
-          author: msg.author?.username || "unknown",
-          url: msg.attachments?.[0]?.url || "",
-          description: msg.content || ""
-        });
-
-      } catch (e) {
-        console.log("thread処理エラー:", e);
-      }
+    if (!Array.isArray(messages)) {
+      console.log("messages中身:", messages); // ★追加③
+      continue;
     }
+
+    if (messages.length === 0) continue;
+
+    // 全attachments確認
+    console.log(
+      "attachments一覧:",
+      messages.map(m => m.attachments)
+    ); // ★追加④
+
+    const msg = messages[messages.length - 1]; // ★ここ重要（修正）
+
+    console.log("選ばれたmsg:", msg); // ★追加⑤
+
+    if (!msg.attachments || msg.attachments.length === 0) {
+      console.log("attachmentsなし → スキップ"); // ★追加⑥
+      continue;
+    }
+
+    mods.push({
+      name: thread.name,
+      author: msg.author?.username || "unknown",
+      url: msg.attachments[0].url,
+      description: msg.content || ""
+    });
+
+  } catch (e) {
+    console.log("thread処理エラー:", e);
+  }
+}
 
     fs.writeFileSync("mods.json", JSON.stringify(mods, null, 2));
     console.log("mods.json updated:", mods.length);
