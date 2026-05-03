@@ -4,6 +4,21 @@ const fetch = require("node-fetch");
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 
+function parseModInfo(text) {
+  const lines = text.split("\n");
+
+  const data = {};
+
+  for (const line of lines) {
+    const [key, ...rest] = line.split("=");
+    if (!key || rest.length === 0) continue;
+
+    data[key.trim()] = rest.join("=").trim();
+  }
+
+  return data;
+}
+
 async function fetchMods() {
   try {
     const res = await fetch(
@@ -25,14 +40,25 @@ async function fetchMods() {
     console.log("メッセージ数:", messages.length);
 
     const mods = messages
-      .filter(m => m.attachments && m.attachments.length > 0)
-      .map(m => ({
-        name: m.content.split("\n")[0] || "No Name",
-        author: m.author.username,
-        url: m.attachments[0].url,
-        description: m.content || ""
-      }));
+  .map(m => {
+    const info = parseModInfo(m.content); // ★ここで使う
 
+    // 必須チェック（ここ重要）
+    if (!info.name || !info.author) return null;
+
+    return {
+      name: info.name,
+      author: info.author,
+      version: info.version || "",
+      description: info.description || "",
+      url:
+        m.attachments?.[0]?.url ||
+        m.embeds?.[0]?.url ||
+        ""
+    };
+  })
+  .filter(Boolean); // null除外
+    
     fs.writeFileSync("mods.json", JSON.stringify(mods, null, 2));
 
     console.log("mods数:", mods.length);
