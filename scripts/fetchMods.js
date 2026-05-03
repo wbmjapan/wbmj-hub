@@ -4,31 +4,47 @@ const fetch = require("node-fetch");
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 
+const headers = {
+  Authorization: `Bot ${TOKEN}`
+};
+
 async function fetchMods() {
-  const res = await fetch(
-    `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`,
-    {
-      headers: {
-        Authorization: `Bot ${TOKEN}`,
-      },
-    }
+  // ① スレッド一覧取得
+  const threadRes = await fetch(
+    `https://discord.com/api/v10/channels/${CHANNEL_ID}/threads/active`,
+    { headers }
   );
 
-  const messages = await res.json();
+  const threadData = await threadRes.json();
+  const threads = threadData.threads || [];
 
-  console.log("取得件数:", messages.length);
+  const mods = [];
 
-  const mods = messages
-    .filter(m => m.attachments && m.attachments.length > 0)
-    .map(m => ({
-      name: m.content.split("\n")[0] || "No Name",
-      author: m.author.username,
-      url: m.attachments[0].url,
-      description: m.content || ""
-    }));
+  // ② 各スレッド処理
+  for (const thread of threads) {
+    const msgRes = await fetch(
+      `https://discord.com/api/v10/channels/${thread.id}/messages`,
+      { headers }
+    );
+
+    const messages = await msgRes.json();
+
+    if (!messages || messages.length === 0) continue;
+
+    const firstMsg = messages[0];
+
+    if (!firstMsg.attachments || firstMsg.attachments.length === 0) continue;
+
+    mods.push({
+      name: thread.name,
+      author: firstMsg.author.username,
+      url: firstMsg.attachments[0].url,
+      description: firstMsg.content || ""
+    });
+  }
 
   fs.writeFileSync("mods.json", JSON.stringify(mods, null, 2));
-  console.log("mods.json updated");
+  console.log("mods.json updated:", mods.length);
 }
 
 fetchMods().catch(console.error);
